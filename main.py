@@ -1,19 +1,14 @@
 """
-Real-Time Driver Drowsiness Detection Pipeline
-Main async orchestration with parallel processing threads.
+Advanced Real-Time Driver Drowsiness Detection Pipeline
+Main async orchestration with robust parallel processing threads.
 """
 
-import cv2
-import numpy as np
 import threading
 import queue
 import time
 import logging
 from collections import deque
-from pathlib import Path
-import sys
 
-# Local imports
 from config import Config
 from pipeline.capture import CameraCapture
 from pipeline.preprocessing import PreprocessingPipeline
@@ -23,80 +18,105 @@ from pipeline.alerting import AlertManager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class DrowsinessDetectionPipeline:
     """
-    Async pipeline orchestrator with three parallel threads:
+    Async pipeline orchestrator with four parallel threads:
     - Camera Capture → Preprocessing → Inference → Alerting
     """
     
     def __init__(self, config: Config):
         self.config = config
         self.is_running = False
+        self.stop_event = threading.Event()
         
         # Thread-safe queues
         self.frame_queue = queue.Queue(maxsize=config.QUEUE_MAXSIZE)
         self.processed_queue = queue.Queue(maxsize=config.QUEUE_MAXSIZE)
         self.inference_queue = queue.Queue(maxsize=config.QUEUE_MAXSIZE)
         
-        # Modules
+        # Pipeline modules
         self.capture = CameraCapture(config, self.frame_queue)
         self.preprocessor = PreprocessingPipeline(config, self.frame_queue, self.processed_queue)
         self.inferencer = InferencePipeline(config, self.processed_queue, self.inference_queue)
         self.alerter = AlertManager(config, self.inference_queue)
         
-        # Metrics
-        self.fps_deque = deque(maxlen=30)
         self.last_time = time.time()
         
     def start(self):
-        """Launch all threads."""
+        """Launch all threads safely."""
         self.is_running = True
-        logger.info("🚀 Starting Drowsiness Detection Pipeline")
+        self.stop_event.clear()
         
-        threads = [
-            threading.Thread(target=self.capture.run, daemon=True, name="CameraThread"),
-            threading.Thread(target=self.preprocessor.run, daemon=True, name="PreprocessThread"),
-            threading.Thread(target=self.inferencer.run, daemon=True, name="InferenceThread"),
-            threading.Thread(target=self.alerter.run, daemon=True, name="AlertThread"),
+        # Pre-set components to prevent race conditions during startup validation
+        self.capture.is_running = True
+        self.preprocessor.is_running = True
+        self.inferencer.is_running = True
+        self.alerter.is_running = True
+        
+        logger.info("🚀 Starting Advanced Drowsiness Detection Pipeline...")
+        
+        self.threads = [
+            threading.Thread(target=self._run_module, args=(self.capture,), daemon=True, name="CaptureThread"),
+            threading.Thread(target=self._run_module, args=(self.preprocessor,), daemon=True, name="PreprocessThread"),
+            threading.Thread(target=self._run_module, args=(self.inferencer,), daemon=True, name="InferenceThread"),
+            threading.Thread(target=self._run_module, args=(self.alerter,), daemon=True, name="AlertThread"),
         ]
         
-        for thread in threads:
-            thread.start()
-        
-        # Main monitoring loop
+        for t in self.threads:
+            t.start()
+            
         self._monitor_loop()
-    
+        
+    def _run_module(self, module):
+        module.run()
+        
     def _monitor_loop(self):
-        """Monitor FPS, queue health, and graceful shutdown."""
+        """Monitor queue health and manage graceful breakdown."""
         try:
-            while self.is_running:
+            while self.is_running and not self.stop_event.is_set():
+                
+                # Check if UI window was closed by user
+                if not self.alerter.is_running:
+                    self.stop()
+                    break
+                    
                 current_time = time.time()
                 elapsed = current_time - self.last_time
                 
                 if elapsed >= 1.0:  # Every 1 second
-                    avg_fps = len(self.fps_deque) / (elapsed + 1e-6)
-                    queue_health = {
-                        'frame_q': self.frame_queue.qsize(),
-                        'process_q': self.processed_queue.qsize(),
-                        'infer_q': self.inference_queue.qsize(),
-                    }
-                    
-                    logger.info(f"FPS: {avg_fps:.1f} | Queue Health: {queue_health}")
+                    q_health = f"Q:[Frames:{self.frame_queue.qsize()} Preps:{self.processed_queue.qsize()} Infer:{self.inference_queue.qsize()}]"
+                    logger.info(f"Pipeline Health | {q_health}")
                     self.last_time = current_time
                 
                 time.sleep(0.1)
                 
         except KeyboardInterrupt:
-            logger.info("⛔ Shutdown signal received")
-            self.stop()
-    
+            logger.info("⛔ Keyboard Interrupt received")
+        finally:
+            if self.is_running:
+                self.stop()
+            
     def stop(self):
-        """Graceful shutdown."""
+        """Safely shutdown all modules and prevent deadlocks by flushing queues."""
+        logger.info("Initiating safe shutdown...")
         self.is_running = False
+        self.stop_event.set()
+        
+        # Stop modules
         self.capture.stop()
-        logger.info("✅ Pipeline stopped")
-
+        self.preprocessor.is_running = False
+        self.inferencer.is_running = False
+        self.alerter.is_running = False
+        
+        # Flush all queues to unblock threads hanging on .put() or .get()
+        for q in [self.frame_queue, self.processed_queue, self.inference_queue]:
+            while not q.empty():
+                try: 
+                    q.get_nowait()
+                except queue.Empty: 
+                    break
+                    
+        logger.info("✅ Pipeline gracefully stopped.")
 
 if __name__ == "__main__":
     cfg = Config()

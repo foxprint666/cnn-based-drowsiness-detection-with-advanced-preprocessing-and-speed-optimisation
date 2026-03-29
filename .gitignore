@@ -67,3 +67,10 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Models and Datasets
+*.pth
+*.task
+models/
+train/data/
+train/confusion_matrix.png

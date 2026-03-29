@@ -4,26 +4,34 @@ A real-time driver drowsiness detection system using computer vision and deep le
 
 ## Features
 
-- **Real-time Processing**: Multi-threaded async pipeline with parallel processing
-- **Face Detection**: MediaPipe-based face detection with ROI stabilization
-- **Eye Tracking**: Optical flow-based eye landmark tracking with Kalman filtering
-- **Image Enhancement**: CLAHE (Contrast Limited Adaptive Histogram Equalization) and gamma correction
-- **Drowsiness Detection**: CNN-based eye state classification using EAR (Eye Aspect Ratio)
-- **Alert System**: Configurable audio and visual alerts
+- **Real-time Processing**: Multi-threaded async pipeline with zero-deadlock synchronization.
+- **Advanced Face Tracking (FaceMesh)**: Dense 468 3D facial landmarks for precise tracking.
+- **Head Pose Estimation**: Pitch, Yaw, and Roll calculation using `cv2.solvePnP` for distraction monitoring.
+- **Yawning Detection**: Mouth Aspect Ratio (MAR) computed from lip landmarks.
+- **Drowsiness Detection (MobileNetV2)**: State-of-the-art CNN for evaluating Eye State probabilities.
+- **Automatic Mixed Precision (AMP)**: GPU optimization using PyTorch `autocast`.
+- **Model Training Suite**: Integrated `train.py` and `dataset.py` for retraining on public datasets.
 
 ## Pipeline Architecture
 
+```mermaid
+graph TD
+    A[Camera Capture Thread] -->|Frame Queue| B(Preprocessing Thread)
+    B -->|FaceMesh Landmarks| C{Feature Extraction}
+    C -->|solvePnP| D[Head Pose: Pitch/Yaw/Roll]
+    C -->|Lip Distance| E[Mouth Aspect Ratio]
+    C -->|Eye Crops| F[Stabilization & Enhancement]
+    D -->|Processed Queue| G(CNN Inference Thread)
+    E -->|Processed Queue| G
+    F -->|Processed Queue| G
+    G -->|MobileNetV2 CNN| H[Eye State Probability]
+    H -->|Inference Queue| I(Alert Manager Thread)
+    D -->|Inference Queue| I
+    E -->|Inference Queue| I
+    I -->|Logic Checks| J{State Evaluation}
+    J -->|Drowsy| K[🚨 Critical Alarm]
+    J -->|Distracted / Yawning| L[⚠️ Visual Warning]
 ```
-Camera Capture → Preprocessing → Inference → Alerting
-     ↓               ↓              ↓           ↓
-  Frame Q       Processed Q    Inference Q   Alerts
-```
-
-### Threads
-1. **CameraThread**: Captures frames from camera
-2. **PreprocessThread**: Face detection, eye tracking, image enhancement
-3. **InferenceThread**: CNN-based drowsiness classification
-4. **AlertThread**: Manages alerts based on inference results
 
 ## Requirements
 

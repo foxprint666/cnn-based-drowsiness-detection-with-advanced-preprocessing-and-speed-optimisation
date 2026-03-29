@@ -29,12 +29,20 @@ class Config:
     # CNN Inference
     EYE_ROI_SIZE = (128, 64)
     INFERENCE_INTERVAL = 3  # Every 3 frames
-    MODEL_PATH = "models/eye_detector.pth"
+    MODEL_PATH = "models/mobilenet_v2_eye_state.pth"
     
     # Drowsiness Detection
-    EAR_THRESHOLD = 0.2
-    CLOSED_FRAMES_THRESHOLD = 15  # ~0.5s at 30 FPS
-    DROWSY_FRAMES_THRESHOLD = 10
+    EAR_THRESHOLD = 0.3
+    CLOSED_FRAMES_THRESHOLD = 20  # ~0.7s at 30 FPS
+    DROWSY_FRAMES_THRESHOLD = 15
+    
+    # New Thresholds (Yawning, Head Pose via Tasks API Blendshapes & Matrix)
+    MAR_THRESHOLD = 0.35  # Yawning (jawOpen blendshape, 0.0 - 1.0)
+    YAWNING_FRAMES_THRESHOLD = 20
+    PITCH_THRESHOLD = 45.0  # Degrees
+    YAW_THRESHOLD = 45.0
+    ROLL_THRESHOLD = 45.0
+    HEAD_POSE_FRAMES_THRESHOLD = 15
     
     # Alerting
     ALERT_SOUND_DURATION = 0.5  # seconds
