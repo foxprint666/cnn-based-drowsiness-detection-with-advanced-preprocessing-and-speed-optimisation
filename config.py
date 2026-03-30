@@ -32,7 +32,7 @@ class Config:
     MODEL_PATH = "models/mobilenet_v2_eye_state.pth"
     
     # Drowsiness Detection
-    EAR_THRESHOLD = 0.3
+    EAR_THRESHOLD = 0.2
     CLOSED_FRAMES_THRESHOLD = 20  # ~0.7s at 30 FPS
     DROWSY_FRAMES_THRESHOLD = 15
     

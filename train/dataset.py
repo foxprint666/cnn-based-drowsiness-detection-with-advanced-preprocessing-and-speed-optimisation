@@ -135,13 +135,15 @@ def get_dataloaders(data_dir="data/mrlEyes", batch_size=64, download=True):
         normalize
     ])
     
+    # Check if Kaggle-style structure (train/test or closed/open folders inside) exists
+    train_path = Path(data_dir) / "train" if (Path(data_dir) / "train").exists() else Path(data_dir)
+    val_path = Path(data_dir) / "test" if (Path(data_dir) / "test").exists() else train_path
+    
+    has_kaggle_structure = (Path(data_dir) / "train").exists() or (Path(data_dir) / "test").exists() or (Path(data_dir) / "closed").exists()
+    
     # Use ImageFolder wrapper if the dataset is formatted in sub-folders (like Kaggle CEW)
-    if 'kaggle' in str(data_dir).lower() or 'cew' in str(data_dir).lower():
+    if 'kaggle' in str(data_dir).lower() or 'cew' in str(data_dir).lower() or has_kaggle_structure:
         from torchvision.datasets import ImageFolder
-        
-        # Check if zip gave us train/test splits inside
-        train_path = Path(data_dir) / "train" if (Path(data_dir) / "train").exists() else Path(data_dir)
-        val_path = Path(data_dir) / "test" if (Path(data_dir) / "test").exists() else train_path
         
         base_train = ImageFolder(root=train_path, transform=train_transform)
         base_val = ImageFolder(root=val_path, transform=val_transform)

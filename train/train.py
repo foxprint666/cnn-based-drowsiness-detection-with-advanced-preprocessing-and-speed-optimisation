@@ -39,7 +39,7 @@ class EyeStateMobileNetV2(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-def train_model(data_dir="data/mrlEyes", epochs=15, batch_size=128, lr=1e-3, save_dir="../models", dry_run=False):
+def train_model(data_dir="data/mrlEyes", epochs=15, batch_size=128, lr=1e-3, save_dir="models", dry_run=False):
     os.makedirs(save_dir, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"🚀 Using device: {device}")

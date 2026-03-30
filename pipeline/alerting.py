@@ -19,7 +19,7 @@ class AlertManager:
         self.config = config
         self.input_queue = input_queue
         self.is_running = False
-        self.last_alert_time = 0
+        self.last_alert_time = 0.0
         self.alert_cooldown = 1.0  # seconds
         
     def run(self):
@@ -75,13 +75,13 @@ class AlertManager:
         h, w = frame.shape[:2]
         y_pos = 30
         
-        # Determine overall status text
-        if data['is_drowsy']:
-            status = "🛑 ASLEEP!"
-            color = (0, 0, 255)
-        elif data['is_distracted']:
+        # Determine overall status text - prioritize Distraction as per user feedback
+        if data.get('is_distracted', False):
             status = "⚠️ DISTRACTED"
             color = (0, 165, 255) # Orange
+        elif data.get('is_drowsy', False):
+            status = "🛑 ASLEEP!"
+            color = (0, 0, 255)
         elif data['is_yawning']:
             status = "🥱 YAWNING"
             color = (0, 255, 255) # Yellow

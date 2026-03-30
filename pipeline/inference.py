@@ -117,31 +117,39 @@ class InferencePipeline:
                 
                 # ------ STATE TRACKING ------
                 
-                # 1. Closed Eyes (Drowsiness)
-                if avg_open_prob < self.config.EAR_THRESHOLD:
-                    self.closed_frame_count += 1
+                # 1. Distraction (Head Pose)
+                # Check instantaneous distraction for reliable eye inference
+                is_currently_distracted = (abs(data['pitch']) > self.config.PITCH_THRESHOLD or \
+                                           abs(data['yaw']) > self.config.YAW_THRESHOLD or \
+                                           abs(data['roll']) > self.config.ROLL_THRESHOLD)
+                
+                if is_currently_distracted:
+                    self.distracted_frame_count += 1
                 else:
-                    self.closed_frame_count = max(0, self.closed_frame_count - 2) # quick decay
+                    self.distracted_frame_count = max(0, self.distracted_frame_count - 1)
+                    
+                is_distracted = self.distracted_frame_count >= self.config.HEAD_POSE_FRAMES_THRESHOLD
+
+                # 2. Closed Eyes (Drowsiness)
+                # GUARD: Only track eye closure if NOT currently turning head AND face is detected
+                if not is_currently_distracted and data.get('face_detected', False):
+                    if avg_open_prob < self.config.EAR_THRESHOLD:
+                        self.closed_frame_count += 1
+                    else:
+                        self.closed_frame_count = max(0, self.closed_frame_count - 2) # quick decay
+                else:
+                    # If turning head OR NO face detected, slowly decay drowsiness count
+                    self.closed_frame_count = max(0, self.closed_frame_count - 1)
                     
                 is_drowsy = self.closed_frame_count >= self.config.CLOSED_FRAMES_THRESHOLD
                 
-                # 2. Yawning (MAR)
+                # 3. Yawning (MAR)
                 if data['mar'] > self.config.MAR_THRESHOLD:
                     self.yawning_frame_count += 1
                 else:
                     self.yawning_frame_count = max(0, self.yawning_frame_count - 1)
                     
                 is_yawning = self.yawning_frame_count >= self.config.YAWNING_FRAMES_THRESHOLD
-                
-                # 3. Distraction (Head Pose)
-                if abs(data['pitch']) > self.config.PITCH_THRESHOLD or \
-                   abs(data['yaw']) > self.config.YAW_THRESHOLD or \
-                   abs(data['roll']) > self.config.ROLL_THRESHOLD:
-                    self.distracted_frame_count += 1
-                else:
-                    self.distracted_frame_count = max(0, self.distracted_frame_count - 1)
-                    
-                is_distracted = self.distracted_frame_count >= self.config.HEAD_POSE_FRAMES_THRESHOLD
                 
                 # Prepare output
                 output_data = data.copy()
